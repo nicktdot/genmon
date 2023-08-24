@@ -8,11 +8,12 @@ This project will monitor a backup generator that utilizes the Generac Controlle
 * Generac [H-100](https://raw.githubusercontent.com/jgyates/genmon/master/Diagrams/H-100_Controller.png) Industrial Controllers
 * The H-100 controller is used in industrial generators from Generac and Eaton.
 * Generac G-Panel based Industrial Controllers
-* Generac PowerPact
+* Generac [PowerPact](https://github.com/jgyates/genmon/wiki/Appendix-R---Replacing-Generac-MobileLink-with-Genmon-on-a-PowerPact-7.5-KW)
 * [2008 Era Generac Pre-Nexus](https://raw.githubusercontent.com/jgyates/genmon/master/Diagrams/2008-PreNexusController.jpg) controllers. See [this](https://github.com/jgyates/genmon/wiki/Appendix-D-Known-Issues) page for more info.
-* Generac PowerZone controllers
+* Generac [PowerZone Pro/Sync and PowerZone 410](https://github.com/jgyates/genmon/wiki/Appendix-G-Generac-H-100,-G-Panel-and-PowerZone-Controllers) controllers
+* Custom Controller Interface for supporting other generators that use modbus over serial or modbus over TCP. More info on this is located [here](https://github.com/jgyates/genmon/wiki/Appendix-N-Genmon-Supporting-Other-Controller-Types). Deep See Electronics, Briggs & Stratton, etc.
 
-The project is written mostly in python and has been tested with a Raspberry Pi 3 (Pi Zero, Pi Zero W, Pi 2 and Pi 3b+ have also been validated). To use this project you would need to create a physical enclosure for your raspberry pi and possibly [make a cable](https://github.com/jgyates/genmon/wiki/3.1--Making-a-Cable) to connect the raspberry pi to the generator controller or purchase [pre-assembled hardware](https://github.com/jgyates/genmon/wiki#pre-assembled-hardware). If you are comfortable doing these things and you have a backup generator that has a supported controller then this project may be of interest to you.
+The project is written mostly in python and has been tested with a Raspberry Pi 3 (Pi Zero, Pi Zero W, Pi Zero 2W, Pi 2, Pi 3b+ and Pi 4 have also been validated). 32 and 64 bit version of raspbian have been used with the project. To use this project you would need to create a physical enclosure for your raspberry pi and possibly [make a cable](https://github.com/jgyates/genmon/wiki/3.1--Making-a-Cable) to connect the raspberry pi to the generator controller or purchase [pre-assembled hardware](https://github.com/jgyates/genmon/wiki#pre-assembled-hardware). If you are comfortable doing these things and you have a backup generator that has a supported controller, then this project may be of interest to you.
 
 ## Functionality
 The software supports the following features:
@@ -50,7 +51,8 @@ The software supports the following features:
 - Web based application for viewing status of the generator
 - Limited and Full Rights login for web interface
 - SMS notifications of Generator state and power outages (via Twilio SMS API or Expansion Cellular Modem)
-- Push notifications (via pushover.net)
+- Push notifications (via pushover.net, slack)
+- CallMeBot notifications for whatsapp and telegram
 - syslog logging of generator events
 - Command Line application (all the functionality of email).
 - Ability to set exercise time
@@ -88,6 +90,8 @@ If you have a large generator, the placement of your Raspberry Pi could be impor
 ## Connectivity
 This application was written to be agnostic of the underlying network media (i.e. WiFi, Ethernet, etc). Testing and development was performed with WiFi with access points connected to an uninterruptible power supply (UPS) so connectivity is not lost when power is transferred from utility to the generator.
 
+**Note:** It is not recommended to expose the web interface used with this project to the internet without serious thought regarding security. If you want to access genmon remotely I would recommend using a VPN (Virtual Private Network) to access your private network. Genmon uses the python Flask library's internal web server to display web pages for this project. This is suitable for low traffic situations however it is not a good idea to expose this interface to the internet unprotected. Protecting from unwanted access using a username and password is available in this project, however there is still risk involved as the Flask web server is not intended for high traffic situations and would likely fail with a Denial of Service attack.  Raspberry pi's in general are not hardened by default like most public facing web servers. Exposing any computer to the internet has similar security issues that would need to be considered. There [have been instances](https://github.com/jgyates/genmon/issues/702) where hacking has occurred. ***Exposing genmon directly to the internet is not recommended***.
+
 ## Setting Up Your Raspberry Pi (Serial Port)
 Since there are several version of the raspberry Pi out and also several options regarding the operating system, I will leave this section somewhat minimal. I used a Raspberry Pi 3 with [Raspbian](https://www.raspberrypi.org/downloads/raspbian/) Lite. There are many resources on the web for setting up a Raspberry Pi so I will only include links for setting up the serial port. The Linux device name of the serial port changed or at least the symbolic link changed starting with the Raspberry Pi 3 from /dev/ttyAMA0 to /dev/serial0 so if you are using the on board serial port you will want to validate the device name and make sure genmon.conf reflects the serial device name of your Raspberry Pi and Linux distribution. The following two links are helpful in setting up the serial port on the Raspberry Pi:
 
@@ -96,6 +100,13 @@ Since there are several version of the raspberry Pi out and also several options
 [An updated serial port setup instructions based on the Raspberry Pi 3](http://spellfoundry.com/2016/05/29/configuring-gpio-serial-port-raspbian-jessie-including-pi-3/)
 
 One important step is to validate your serial port is working properly. You can validate the serial port is working properly by using the program serialtest.py in this repository. To validate your serial port connect the RS-232 transmit to RS-232 receive and follow the instructions in the software section on [serialtest.py](https://github.com/jgyates/genmon/wiki/1:-Software-Overview#otherappsserialtestpy-optional). Also, you can validate your cable by connecting your cable to your serial port and connecting transmit to receive at the far end of the cable so you will be looping back through your cable, then repeat the serialtest.py test.
+
+## Demo videos
+<a href="http://www.youtube.com/watch?feature=player_embedded&v=cn91Hplkl0w
+" target="_blank"><img src="http://img.youtube.com/vi/cn91Hplkl0w/0.jpg"
+alt="Genmon Demo" width="240" height="180" border="10" /></a>
+
+[Video Series on using Genmon with the Briggs and Stratton GD-1030](https://www.youtube.com/@genmonbriggs9033/videos)
 
 # Documentation
 * [Genmon Project Wiki](https://github.com/jgyates/genmon/wiki)

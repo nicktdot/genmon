@@ -11,7 +11,7 @@ internet access to download the needed libraries. Press any key to continue.  "
 updatenotice="This script will update genmon to the latest version from the github \
 repository. This script requires internet access. If you have modified any \
 files in the genmon directory, they will be overwritten. Configuration files \
-in the configuration directory will not be overritten.   \
+in the configuration directory will not be overritten.  \
 Continue? (y/n)  "
 
 usepython3=true
@@ -28,6 +28,7 @@ update_opt=false
 noprompt_opt=false
 cleanpython_opt=false
 copyfiles_opt=false
+update_os=false
 
 #-------------------------------------------------------------------------------
 function cleanpython() {
@@ -95,6 +96,8 @@ function updatelibraries() {
   else
     sudo $pipcommand install pyotp==2.3.0 -U
   fi
+  sudo $pipcommand install mopeka_pro_check -U
+  sudo $pipcommand install fluids -U
   echo "Done."
 }
 
@@ -114,7 +117,7 @@ function installrpirtscts() {
     echo "Installing rpirtscts..."
     pushd $genmondir
     cd ~
-    git clone git://github.com/mholling/rpirtscts.git
+    git clone https://github.com/mholling/rpirtscts.git
     cd rpirtscts
     make
     sudo cp ./rpirtscts /usr/local/bin/rpirtscts
@@ -144,10 +147,11 @@ function installgenmon() {
     fi
     sudo $pipcommand install pytz
     if [ "$usepython3" = true ] ; then
-      sudo apt-get -yqq install build-essential libssl-dev libffi-dev python3-dev
+      sudo apt-get -yqq install build-essential libssl-dev libffi-dev python3-dev cargo
     else
-      sudo apt-get -yqq install build-essential libssl-dev libffi-dev python-dev
+      sudo apt-get -yqq install build-essential libssl-dev libffi-dev python-dev cargo
     fi
+    sudo apt-get -yqq install cmake
     sudo $pipcommand install pyopenssl
     sudo $pipcommand install twilio
     sudo $pipcommand install chump
@@ -163,12 +167,15 @@ function installgenmon() {
     fi
     # correct problem with LDAP3 module install
     sudo $pipcommand install pyasn1 -U
+    sudo $pipcommand install mopeka_pro_check
+    sudo $pipcommand install fluids
+    sudo $pipcommand install voipms
 
     sudo chmod 775 "$genmondir/startgenmon.sh"
     sudo chmod 775 "$genmondir/genmonmaint.sh"
     installrpirtscts
 
-    if [ -z "$2" ] || [ $1 == "prompt" ]; then    # Is parameter #1 zero length?
+    if [ -z "$2" ] && [ $1 != "noprompt" ]; then    # Is parameter #1 zero length?
         read -p "Copy configuration files to $config_path? (y/n)?" choice
         case "$choice" in
           y|Y ) echo "Copying *.conf files to "$config_path""
@@ -183,7 +190,7 @@ function installgenmon() {
     else
         copyconffiles
     fi
-    if [ -z "$2" ] || [ $1 == "prompt" ]; then    # Is parameter #1 zero length?
+    if [ -z "$2" ] && [ $1 != "noprompt" ]; then    # Is parameter #1 zero length?
       read -p "Setup the raspberry pi onboard serial port? (y/n)?" choice
       case "$choice" in
         y|Y ) echo "Setting up serial port..."
@@ -263,6 +270,10 @@ function archivelogs() {
     sudo cp "$log_path"gentankdiy.log ./genmon_logs
     sudo cp "$log_path"gentemp.log ./genmon_logs
     sudo cp "$log_path"gengpioledblink.log ./genmon_logs
+    sudo cp "$log_path"gencthat.log ./genmon_logs
+    sudo cp "$log_path"genmopeka.log ./genmon_logs
+    sudo cp "$log_path"gencustomgpio.log ./genmon_logs
+    sudo cp "$log_path"gensms_voip.log ./genmon_logs
     tar -zcvf genmon_logs.tar.gz genmon_logs/
     sudo rm -r genmon_logs
     echo "Done."
@@ -297,10 +308,15 @@ function backupgenmon() {
     sudo cp "$config_path"gentemp.conf ./genmon_backup
     sudo cp "$config_path"gentankdiy.conf ./genmon_backup
     sudo cp "$config_path"gengpioledblink.conf ./genmon_backup
+    sudo cp "$config_path"gencthat.conf ./genmon_backup
+    sudo cp "$config_path"genmopeka.conf ./genmon_backup
+    sudo cp "$config_path"gencustomgpio.conf ./genmon_backup
+    sudo cp "$config_path"gensms_voip.conf ./genmon_backup
     sudo cp "$config_path"outage.txt ./genmon_backup
     sudo cp "$config_path"kwlog.txt ./genmon_backup
     sudo cp "$config_path"fuellog.txt ./genmon_backup
     sudo cp "$config_path"maintlog.json ./genmon_backup
+    sudo cp "$config_path"update.txt ./genmon_backup
     tar -zcvf genmon_backup.tar.gz genmon_backup/
     sudo rm -r genmon_backup
     echo "Done."
@@ -312,12 +328,23 @@ function updategenmon() {
 
     echo "Updating genmon..."
     cd $genmondir
+    current_time=$(date '+%Y-%m-%d:%H:%M:%S')
+    
+    UPDATE_HISTORY="$config_path"update.txt
+    if [ ! -f "$UPDATE_HISTORY" ]; then
+      echo "$UPDATE_HISTORY does not exist. Creating.."
+      sudo touch $UPDATE_HISTORY
+    fi
+
+    git config --global --add safe.directory '*'
     git fetch origin
     git reset --hard origin/master
     sudo chmod 775 "$genmondir/startgenmon.sh"
     sudo chmod 775 "$genmondir/genmonmaint.sh"
     sudo chown -R `stat -c "%U" $genmondir` $genmondir
     sudo chgrp -R `stat -c "%G" $genmondir` $genmondir
+
+    sudo sh -c "printf '%s\n' $current_time >> $UPDATE_HISTORY"
     echo "Done."
 }
 
@@ -341,6 +368,7 @@ function printhelp() {
   echo "  -p           Specifiy 2 or 3 for python version. 2 is default"
   echo "  -s           Just copy conf files"
   echo "  -l           Specifiy the full path of the log directory to archive"
+  echo "  -f           Update OS software and apt repository flags if needed"
   echo "  -h           Display help"
   echo ""
 }
@@ -349,11 +377,14 @@ function printhelp() {
 # main entry
 
 
-while getopts ":hp:birunc:Csl:" opt; do
+while getopts ":hfp:birunc:Csl:" opt; do
   case ${opt} in
     h )
       printhelp
       exit 0
+      ;;
+    f )
+      update_os=true
       ;;
     p )
       setuppython3 $OPTARG
@@ -396,6 +427,9 @@ while getopts ":hp:birunc:Csl:" opt; do
 done
 shift $((OPTIND -1))
 
+if [ "$update_os" = true ] ; then
+   sudo apt-get --allow-releaseinfo-change update && sudo apt-get upgrade
+fi
 
 if [ "$install_opt" = true ] ; then
   if [ "$noprompt_opt" = true ] ; then

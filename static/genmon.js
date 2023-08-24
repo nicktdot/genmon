@@ -739,7 +739,7 @@ function DisplayMaintenance(){
                outstr += '&nbsp;&nbsp;<button id="setexercisebutton" onClick="saveMaintenance();">Set Exercise Time</button>';
             }
 
-            if (myGenerator['SetGenTime'] == true) {  
+            if (myGenerator['SetGenTime'] == true) {
               outstr += '<br><br>Generator Time:<br><br>';
               outstr += '&nbsp;&nbsp;<button id="settimebutton" onClick="SetTimeClick();">Set Generator Time</button>';
             }
@@ -773,6 +773,15 @@ function DisplayMaintenance(){
             if (myGenerator['PowerGraph'] == true) {
                outstr += '<br><br>Reset:<br><br>';
                outstr += '&nbsp;&nbsp;<button id="settimebutton" onClick="SetPowerLogReset();">Reset Power Log & Fuel Estimate</button>';
+            }
+
+            if (("buttons" in myGenerator) && !(Object.keys(myGenerator['buttons']).length === 0) ){
+              outstr += '<br><br>Generator Functions:<br><br>';
+              for (let key in myGenerator['buttons']) {
+                button_command = key
+                button_title = myGenerator['buttons'][key];
+                outstr += '&nbsp;&nbsp;<button id=' + button_command + ' onClick="SetClick(\'' + button_command + '\');">' + button_title + '</button><br><br>';
+              }
             }
 
         }
@@ -862,6 +871,9 @@ function SetClick(cmd){
        case "ackalarm":
           msg = 'Acknowledge generator alarm?<br><span class="confirmSmall">Are you sure you want to acknowledge the alarm condition on your generator?</span>';
           break;
+       default:
+          button_title = myGenerator['buttons'][cmd]
+          msg = 'Issue generator command: ' + button_title + '?<br><span class="confirmSmall">Are you sure you want to isssue this command?</span>';
     }
 
     vex.dialog.confirm({
@@ -1110,15 +1122,15 @@ function DisplayLogs(){
                var matches = loglines[i].match(/^\s*(\d+)\/(\d+)\/(\d+) (\d+:\d+:\d+) (.*)$/i)
                if ((matches != undefined) && (matches.length == 6)) {
                   if ((12*matches[3]+1*matches[1]+12) <= (12*(date.getYear()-100) + date.getMonth() + 1)) {
-                  } else if (data_helper[matches.slice(1,3).join("/")] == undefined) {
-                      data_helper[matches.slice(1,3).join("/")] = {count: severity, date: '20'+matches[3]+'-'+matches[1]+'-'+matches[2], dateFormatted: matches[2]+' '+MonthsOfYearArray[(matches[1] -1)]+' 20'+matches[3], title: matches[5].trim()};
+                  } else if (data_helper[matches[3]+'/'+matches[1]+'/'+matches[2]] == undefined) {
+                      data_helper[matches[3]+'/'+matches[1]+'/'+matches[2]] = {count: severity, date: '20'+matches[3]+'-'+matches[1]+'-'+matches[2], dateFormatted: matches[2]+' '+MonthsOfYearArray[(matches[1] -1)]+' 20'+matches[3], title: matches[5].trim()};
                       if (((12*(date.getYear()-100) + date.getMonth() + 1)-(12*matches[3]+1*matches[1])+1) > months) {
                           months = (12*(date.getYear()-100) + date.getMonth() + 1)-(12*matches[3]+1*matches[1])+1
                       }
                   } else {
-                      data_helper[matches.slice(1,3).join("/")]["title"] = data_helper[matches.slice(1,3).join("/")]["title"] + "<br>" + matches[5].trim();
-                      if (data_helper[matches.slice(1,3).join("/")]["count"] < severity)
-                         data_helper[matches.slice(1,3).join("/")]["count"] = severity;
+                      data_helper[matches[3]+'/'+matches[1]+'/'+matches[2]]["title"] = data_helper[matches[3]+'/'+matches[1]+'/'+matches[2]]["title"] + "<br>" + matches[5].trim();
+                      if (data_helper[matches[3]+'/'+matches[1]+'/'+matches[2]]["count"] < severity)
+                         data_helper[matches[3]+'/'+matches[1]+'/'+matches[2]]["count"] = severity;
                   }
                }
             }
@@ -1128,7 +1140,11 @@ function DisplayLogs(){
           // var data = Object.keys(data_helper).map(itm => data_helper[itm]);
           // var data = Object.values(data_helper);
           // console.log(data);
-          var options = {coloring: 'genmon', start: new Date((date.getMonth()-12 < 0) ? date.getYear() - 1 + 1900 : date.getYear() + 1900, (date.getMonth()-12 < 0) ? date.getMonth()+1 : date.getMonth()-12, 1), end: new Date(date.getYear() + 1900, date.getMonth(), date.getDate()), months: months, labels: { days: true, months: true, custom: {monthLabels: "MMM 'YY"}}, tooltips: { show: true, options: {}}, legend: { show: false}};
+          var options = {coloring: 'genmon',
+                         start: new Date((date.getMonth()-12 < 0) ? date.getYear() - 1 + 1900 : date.getYear() + 1900, (date.getMonth()-12 < 0) ? date.getMonth()+1 : date.getMonth()-12, 1),
+                         end: new Date(date.getYear() + 1900, date.getMonth(), date.getDate()) ,
+                         months: months, lastMonth: date.getMonth()+1, lastYear: date.getYear() + 1900,
+                         labels: { days: true, months: true, custom: {monthLabels: "MMM 'YY"}}, tooltips: { show: true, options: {}}, legend: { show: false}};
           $("#annualCalendar").CalendarHeatmap(data, options);
         }
    }});
@@ -1401,7 +1417,8 @@ function DisplayJournal(){
            var outstr = emptyJournalLine("amend", id, allJournalEntries[id]["date"], allJournalEntries[id]["type"], allJournalEntries[id]["hours"], allJournalEntries[id]["comment"])
            $("#row_"+id).replaceWith(outstr);
            $("input[name^='time_"+id+"']").timepicker({ 'timeFormat': 'H:i' });
-           $("input[name^='date_"+id+"']").datepicker({ dateFormat: 'mm/dd/yy' })
+           $("input[name^='date_"+id+"']").datepicker({ dateFormat: 'mm/dd/yy' });
+           $("#comment_"+id).val(allJournalEntries[id]["comment"].replace( /\<br\>/g, '\n' ));
         });
 
         $(".remove_bin#deleteJournalRow").on('click', function() {
@@ -1411,7 +1428,7 @@ function DisplayJournal(){
 
         $(document).ready(function() {
            $("#addJournalRow").click(function () {
-                  id = $("#alljournal").length
+                  id = $("#alljournal").length+1
                   var outstr = emptyJournalLine("add", id, myGenerator['MonitorTime'], "", isNaN(parseFloat(myGenerator['RunHours'])) ? "" : parseFloat(myGenerator['RunHours']), "")
                   if ($("#alljournal").length > 0) {
                       $("#alljournal").append(outstr);
@@ -1442,7 +1459,7 @@ function renderJournalLine(rowcount, date, type, hours, comment) {
    outstr += '         <table width="90%"><tr><td width="30%">Date: '+date+'</td><td width="30%">Type: '+type+'</td><td width="30%">Service Hours: '+hours+'</td><td width="10%" align="right"><img id="editJournalRow" row="'+ rowcount +'" class="edit" src="images/transparent.png" width="24px" height="24px">&nbsp<img id="deleteJournalRow" row="'+ rowcount +'" class="remove_bin" src="images/transparent.png" width="24px" height="24px"></td></table>';
    outstr += '     </div>';
    outstr += '     <div style="clear: both;"></div>';
-   outstr += '     <div style="margin:10px;font-size: 15px;">'+comment+'</center></div>';
+   outstr += '     <div style="margin:10px;font-size:15px;text-align:left;">'+comment+'</div>';
    outstr += '     <div style="clear: both;"></div><br>';
    outstr += '  </div>';
    outstr += '</td>';
@@ -1460,12 +1477,16 @@ function emptyJournalLine(rowtype, rowcount, date, type, hours, comment) {
    outstr += '     <div style="width:100%; background-color:#e1e1e1; border-radius: 6px 6px 0px 0px; float:left; padding-top:10px; padding-bottom:10px;">';
    outstr += '         <center><table width="80%">';
    outstr += '           <tr><td align="right" style="padding:3px">Date: &nbsp;&nbsp;&nbsp;</td><td style="padding:3px"><input id="date_' + rowcount + '" name="date_' + rowcount + '" type="text" value="'+date.split(" ")[0]+'">&nbsp;<input id="time_' + rowcount + '" name="time_' + rowcount + '" type="text" value="'+date.split(" ")[1]+'"></td></tr>';
-   outstr += '           <tr><td align="right" style="padding:3px">Type: &nbsp;&nbsp;&nbsp;</td><td style="padding:3px"><select id="type_' + rowcount + '" name="type_' + rowcount + '" ><option value="Repair">Repair</option><option value="Check">Check</option><option value="Observation">Observation</option><option value="Maintenance">Maintenance</option></select></td></tr>';
+   outstr += '           <tr><td align="right" style="padding:3px">Type: &nbsp;&nbsp;&nbsp;</td><td style="padding:3px"><select id="type_' + rowcount + '" name="type_' + rowcount + '" >';
+   outstr += '               <option value="Repair" ' + (type.toLowerCase() == "repair"  ? ' selected="selected" ' : '') + '>Repair</option>';
+   outstr += '               <option value="Check" ' + (type.toLowerCase() == "check"  ? ' selected="selected" ' : '') + '>Check</option>';
+   outstr += '               <option value="Observation" ' + (type.toLowerCase() == "observation"  ? ' selected="selected" ' : '') + '>Observation</option>';
+   outstr += '               <option value="Maintenance" ' + (type.toLowerCase() == "maintenance"  ? ' selected="selected" ' : '') + '>Maintenance</option></select></td></tr>';
    outstr += '           <tr><td align="right" style="padding:3px">Service Hours: &nbsp;&nbsp;&nbsp;</td><td style="padding:3px"><input id="hours_' + rowcount + '" name="hours_' + rowcount + '" type="text" value="'+hours+'"></td></tr>';
    outstr += '         </table></center>';
    outstr += '     </div>';
    outstr += '     <div style="clear: both;"></div>';
-   outstr += '     <div style="margin:15px;font-size: 15px;"><textarea id="comment_' + rowcount + '" name="comment_' + rowcount + '" rows="4" style="width:100%;">'+comment+'</textarea></center></div>';
+   outstr += '     <div style="margin:15px;font-size: 15px;"><textarea id="comment_' + rowcount + '" name="comment_' + rowcount + '" rows="4" style="width:100%;">'+comment.replace( /\<br\>/g, '\n' )+'</textarea></center></div>';
    outstr += '     <div style="clear: both;"></div>';
    outstr += '     <button id="setjournalbutton" onClick="saveJournals(\'' + rowtype + '\', ' + rowcount + '); return false;">Save</button>';
    outstr += '     <div style="clear: both;"></div><br>';
@@ -1544,8 +1565,8 @@ function saveJournalsJSON(rowtype, rowcount){
         var entry = {
             date: $("input[name^='date_"+rowcount+"']").val()+" "+$("input[name^='time_"+rowcount+"']").val(),   // Format is text string:  MM/DD/YYYY
             type: $("select[name^='type_"+rowcount+"']").val(),                                                  // Values are string: "Repair", "Maintenance", "Check" or "Observation"
-            hours: parseFloat($("input[name^='hours_"+rowcount+"']").val()),                                       // Must be a number (integer or floating point)
-            comment: $("textarea[name^='comment_"+rowcount+"']").val()                                           // Text string
+            hours: parseFloat($("input[name^='hours_"+rowcount+"']").val()),                                     // Must be a number (integer or floating point)
+            comment: $("textarea[name^='comment_"+rowcount+"']").val().replace( /\n/g, '<br>' )               // Text string
             };
 
         // send command
@@ -2017,36 +2038,36 @@ function locationSuccess(position) {
 }
 
 //*****************************************************************************
-function printSettingsField(type, key, value, tooltip, validation, callback) {
+function printSettingsField(type, key, value, tooltip, validation, callback, parent = "", name = "") {
    var outstr = "";
    switch (type) {
      case "string":
      case "password":
        outstr += '<div class="field idealforms-field">' +
-                 '<input id="' + key + '" style="width: 300px;" name="' + key + '" type="' + ((type == "password") ? "password" : "text") + '" ' +
+                 '<input id="' + key + parent + '" style="width: 300px;" name="' + key + '" type="' + ((type == "password") ? "password" : "text") + '" ' +
                   (((typeof callback !== 'undefined' ) && (callback != "")) ? ' onChange="' + callback + ';" ' : "") +
                   (typeof value === 'undefined' ? '' : 'value="' + replaceAll(value, '"', '&quot;') + '" ') +
                   (typeof value === 'undefined' ? '' : 'oldValue="' + replaceAll(value, '"', '&quot;') + '" ') +
-                  (((typeof validation === 'undefined') || (validation==0)) ? 'onFocus="$(\'#'+key+'_tooltip\').show();" onBlur="$(\'#'+key+'_tooltip\').hide();" ' : 'data-idealforms-rules="' + validation + '" ') + '>' +
+                  (((typeof validation === 'undefined') || (validation==0)) ? 'onFocus="$(\'#'+key+parent+'_tooltip\').show();" onBlur="$(\'#'+key+parent+'_tooltip\').hide();" ' : 'data-idealforms-rules="' + validation + '" ') + '>' +
                  '<span class="error" style="display: none;"></span>' +
-                  (((typeof tooltip !== 'undefined' ) && (tooltip.trim() != "")) ? '<span id="' + key + '_tooltip" class="tooltip" style="display: none;">' + replaceAll(tooltip, '"', '&quot;') + '</span>' : "") +
+                  (((typeof tooltip !== 'undefined' ) && (tooltip.trim() != "")) ? '<span id="' + key + parent + '_tooltip" class="tooltip" style="display: none;">' + replaceAll(tooltip, '"', '&quot;') + '</span>' : "") +
                  '</div>';
        break;
      case "float":
      case "int":
        outstr += '<div class="field idealforms-field">' +
-                 '<input id="' + key + '" style="width: 150px;" name="' + key + '" type="text" ' +
+                 '<input id="' + key + parent +  '" style="width: 150px;" name="' + key + '" type="text" ' +
                   (((typeof callback !== 'undefined' ) && (callback != "")) ? ' onChange="' + callback + ';" ' : "") +
                   (typeof value === 'undefined' ? '' : 'value="' + value.toString() + '" ') +
                   (typeof value === 'undefined' ? '' : 'oldValue="' + value.toString() + '" ') +
-                  (((typeof validation === 'undefined') || (validation==0)) ? 'onFocus="$(\'#'+key+'_tooltip\').show();" onBlur="$(\'#'+key+'_tooltip\').hide();" ' : 'data-idealforms-rules="' + validation + '" ') + '>' +
+                  (((typeof validation === 'undefined') || (validation==0)) ? 'onFocus="$(\'#'+key+parent+'_tooltip\').show();" onBlur="$(\'#'+key+parent+'_tooltip\').hide();" ' : 'data-idealforms-rules="' + validation + '" ') + '>' +
                  '<span class="error" style="display: none;"></span>' +
-                  (((typeof tooltip !== 'undefined' ) && (tooltip.trim() != "")) ? '<span id="' + key + '_tooltip" class="tooltip" style="display: none;">' + replaceAll(tooltip, '"', '&quot;') + '</span>' : "") +
+                  (((typeof tooltip !== 'undefined' ) && (tooltip.trim() != "")) ? '<span id="' + key + parent + '_tooltip" class="tooltip" style="display: none;">' + replaceAll(tooltip, '"', '&quot;') + '</span>' : "") +
                  '</div>';
        break;
      case "boolean":
        outstr += '<div class="field idealforms-field" onmouseover="showIdealformTooltip($(this))" onmouseout="hideIdealformTooltip($(this))">' +
-                 '<input id="' + key + '" name="' + key + '" type="checkbox" ' +
+                 '<input id="' + key + parent +  '" name="' + key + '" type="checkbox" ' +
                   (((typeof callback !== 'undefined' ) && (callback != "")) ? ' data-callback="' + callback + ';" ' : "") +
                   (((typeof value !== 'undefined' ) && (value.toString() == "true")) ? ' checked ' : '') +
                   (((typeof value !== 'undefined' ) && (value.toString() == "true")) ? ' oldValue="true" ' : ' oldValue="false" ') + '>' +
@@ -2055,7 +2076,7 @@ function printSettingsField(type, key, value, tooltip, validation, callback) {
        break;
      case "list":
        outstr += '<div class="field idealforms-field" onmouseover="showIdealformTooltip($(this))" onmouseout="hideIdealformTooltip($(this))">' +
-                 '<select id="' + key + '" style="width: 300px;" name="' + key + '" ' +
+                 '<select id="' + key + parent +  '" style="width: 300px;" name="' + key + '" ' +
                   (((typeof callback !== 'undefined' ) && (callback != "")) ? ' onChange="' + callback + ';" ' : "") +
                   (typeof value === 'undefined' ? '' : 'value="' + replaceAll(value, '"', '&quot;') + '" ') +
                   (typeof value === 'undefined' ? '' : 'oldValue="' + replaceAll(value, '"', '&quot;') + '" ') + '>' +
@@ -2221,7 +2242,7 @@ function DisplayAddons(){
                $.each(Object.keys(result[addon]["parameters"]), function(j, param) {
                    var par = result[addon]["parameters"][param];
                    outstr += par["display_name"] + '<br>';
-                   outstr += printSettingsField(par["type"], param, par["value"], par["description"], par["bounds"], "changedCard(true, '"+addon+"')") + '<div style="clear: both;"></div>';
+                   outstr += printSettingsField(par["type"], param, par["value"], par["description"], par["bounds"], "changedCard(true, '"+addon+"')", parent = addon, name = par["display_name"]) + '<div style="clear: both;"></div>';
                });
             }
             outstr += '      </div>';
@@ -2448,8 +2469,10 @@ function saveAddonJSON(addon) {
 //*****************************************************************************
 
 function DisplayAbout(){
-    var outstr = '<br><br><br><center><img src="images/GenmonLogo.png" width="60%"><br>';
-    outstr += '<div class="aboutInfo"><br>Genmon<br>Version '+myGenerator["version"]+'<br><br><br>Developed by <a target="_blank" href="https://github.com/jgyates/">@jgyates</a>.<br><br>Published under the <a target="_blank" href="https://raw.githubusercontent.com/jgyates/genmon/master/LICENSE">GNU General Public License v2.0</a>.<br><br>Source: <a target="_blank" href="https://github.com/jgyates/genmon">Github</a><br><br>Built using Python & Javascript.<br>&nbsp;<br></center></div>';
+    vpw = $(window).width();
+ 
+    var outstr = '<br><br><br><center><img src="images/GenmonLogo.png" width="'+Math.round((vpw-200)*0.6)+'px" height="'+Math.round(((vpw-200)*0.6)*(242/1066))+'px"><br>';
+    outstr += '<div class="aboutInfo"><br>Genmon<br>Version <span id="about_version">'+myGenerator["version"]+'</span><br><br><br>Developed by <a target="_blank" href="https://github.com/jgyates/">@jgyates</a>.<br><br>Published under the <a target="_blank" href="https://raw.githubusercontent.com/jgyates/genmon/master/LICENSE">GNU General Public License v2.0</a>.<br><br>Source: <a target="_blank" href="https://github.com/jgyates/genmon">Github</a><br><br>Built using Python & Javascript.<br>&nbsp;<br></center></div>';
 
     if (myGenerator["write_access"] == true) {
       // Update software
@@ -2457,14 +2480,23 @@ function DisplayAbout(){
       outstr += '&nbsp;&nbsp;<button id="checkNewVersion" onClick="checkNewVersion();">Upgrade to latest version</button><br>';
       outstr += '&nbsp;&nbsp;<a href="javascript:showChangeLog();" style="font-style:normal; font-size:14px; text-decoration:underline;">Change Log</a>';
       // Submit registers and logs
-      outstr += '<br><br>Submit Information to Developers:<br><br>';
+      outstr += '<br>Submit Information to Developers:<br>';
+      outstr += 'NOTE: outbound email must be setup and working to submit logs or registers<br><br>';
       outstr += '&nbsp;&nbsp;<button id="submitRegisters" onClick="submitRegisters();">Submit Registers</button>';
       outstr += '&nbsp;&nbsp;<button id="submitLogs" onClick="submitLogs();">Submit Logs</button>';
-      //Backup
+      //Get Backup
       outstr += '<br><br>Download Backup Files:<br><br>';
-      outstr += '&nbsp;&nbsp;<button id="backupFiles" onClick="backupFiles();">Backup</button></center>';
+      // TODO
+      //outstr += '<br><br>Download Backup Files or Restore Backup:<br><br>';
+      
+      outstr += '&nbsp;&nbsp;<button id="backupFiles" onClick="backupFiles();">Backup</button>';
+      // TODO
+      //outstr += '&nbsp;&nbsp;<button id="restoreFiles" onClick="restoreFiles();">Restore</button>';
+      //Get Log Files
+      outstr += '<br><br>Download Log Files:<br><br>';
+      outstr += '&nbsp;&nbsp;<button id="logFiles" onClick="logFiles();">Log Files</button></center>';
     }
-
+   
     $("#mydisplay").html(outstr);
 
     if (myGenerator["write_access"] == true) {
@@ -2479,6 +2511,8 @@ function DisplayAbout(){
                latestVersion = latestVersion.trim()
                if (latestVersion != myGenerator["version"]) {
                      $('#updateNeeded').hide().html("<br>&nbsp;&nbsp;&nbsp;&nbsp;You are not running the latest version.<br>&nbsp;&nbsp;&nbsp;&nbsp;Current Version: " + myGenerator["version"] +"<br>&nbsp;&nbsp;&nbsp;&nbsp;New Version: " + latestVersion+"<br><br>").fadeIn(1000);
+               } else {
+                     $('#updateNeeded').html("").fadeIn(1000);
                }
          }});
        } else if ((latestVersion != "unknown") && (latestVersion != myGenerator["version"])) {
@@ -2604,11 +2638,24 @@ function updateSoftware(){
                   $(this).css('width', '100%')
              });
              // location.reload();
-             setTimeout(function(){ vex.closeAll(); window.location.href = window.location.pathname+"?page=about"; }, 10000);
+             setTimeout(function(){ vex.closeAll(); window.location.href = window.location.pathname+"?page=about&reload=true"; }, 10000);
        }
 
 
     });
+}
+
+//*****************************************************************************
+function restoreFiles(){
+    // TODO
+    let input = document.createElement('input');
+    input.type = 'file';
+    input.onchange = _ => {
+      // you can use this method to get file and perform respective operations
+      let files =   Array.from(input.files);
+      console.log(files);
+    };
+    input.click();
 }
 //*****************************************************************************
 function backupFiles(){
@@ -2616,6 +2663,24 @@ function backupFiles(){
     var link=document.createElement("a");
     link.id = 'backupLink'; //give it an ID
     link.href=baseurl.concat("backup");
+
+    //use the following instead of link.click() so it will work on more browsers
+    var clickEvent = new MouseEvent("click", {
+      "view": window,
+      "bubbles": true,
+      "cancelable": false
+    });
+    link.dispatchEvent(clickEvent);
+
+
+}
+
+//*****************************************************************************
+function logFiles(){
+
+    var link=document.createElement("a");
+    link.id = 'logLink'; //give it an ID
+    link.href=baseurl.concat("get_logs");
 
     //use the following instead of link.click() so it will work on more browsers
     var clickEvent = new MouseEvent("click", {
@@ -3348,7 +3413,7 @@ function GetkWHistory()
 }
 
 //*****************************************************************************
-// GetRegisterNames - Get the current Generator Model and kW Rating
+// GetRegisterNames - Get names of the registers
 //*****************************************************************************
 function GetRegisterNames()
 {
@@ -3369,6 +3434,9 @@ function GenmonAlert(msg)
        vex.dialog.alert({ unsafeMessage: '<table><tr><td valign="middle" width="200px" align="center"><img class="alert_large" src="images/transparent.png" width="64px" height="64px"></td><td valign="middle" width="70%">'+msg+'</td></tr></table>'});
 }
 
+//*****************************************************************************
+//
+//*****************************************************************************
 function GenmonPrompt(title, msg, placeholder)
 {
        vex.closeAll();
@@ -3442,6 +3510,28 @@ function GetBaseStatus()
 
           myGenerator['MonitorTime'] = result['MonitorTime'];
           myGenerator['RunHours'] = result['RunHours'];
+          if (myGenerator['version'].length > 0) {
+             if (myGenerator['version'] != result['version']) {
+                myGenerator['version'] = result['version'];
+                var myDialog = vex.dialog.open({
+                   unsafeMessage: '',
+                   overlayClosesOnClick: false,
+                   buttons: []
+                });
+                
+                var DisplayStr1 = 'A change in the version was detected. Reloading web interface...';
+                var DisplayStr2 = '<div class="progress-bar"><span class="progress-bar-fill" style="width: 0%"></span></div>';
+                $('.vex-dialog-message').html(DisplayStr1);
+                $('.vex-dialog-buttons').html(DisplayStr2);
+                $('.progress-bar-fill').queue(function () {
+                     $(this).css('width', '100%')
+                });
+                
+                setTimeout(function(){ vex.closeAll(); window.location.href = window.location.pathname+"?page=about&reload=true"; }, 10000);
+             }
+          } else {
+             myGenerator['version'] = result['version'];
+          }
 
 
           if ((menuElement == "status") && (gauge.length > 0)) {
